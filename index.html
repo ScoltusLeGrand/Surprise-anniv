@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pour Toi</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;1,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07070c;
+  --rose:#ff3363;
+  --rose-dim:#7a1a30;
+  --gold:#d9a751;
+  --ivory:#f4ece0;
+  --slate:#7d8296;
+  --line:rgba(244,236,224,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--ivory);
+  font-family:'JetBrains Mono',monospace;
+  overflow:hidden;
+  height:100vh;
+  position:relative;
+}
+canvas{position:fixed;inset:0;display:block}
+
+/* ---- monitor strip ---- */
+#monitor{
+  position:fixed;top:0;left:0;right:0;height:120px;z-index:5;
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(7,7,12,.9), rgba(7,7,12,.55));
+}
+#monitor canvas{position:absolute;inset:0}
+#readout{
+  position:fixed;top:14px;left:20px;z-index:6;font-size:11px;letter-spacing:.14em;color:var(--slate);
+  display:flex;gap:22px;text-transform:uppercase;
+}
+#readout b{color:var(--rose);font-weight:700}
+#bpm{
+  position:fixed;top:14px;right:20px;z-index:6;font-size:11px;letter-spacing:.14em;color:var(--slate);
+  text-transform:uppercase;text-align:right;
+}
+#bpm span{display:block;font-family:'Playfair Display',serif;font-style:italic;font-weight:600;font-size:26px;color:var(--ivory);letter-spacing:0}
+
+/* ---- terminal ---- */
+#ui{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;z-index:10;padding:24px}
+#terminal{
+  width:min(460px,90vw);text-align:left;background:rgba(10,10,16,.72);
+  border:1px solid var(--line);border-radius:2px;padding:34px 30px;
+  backdrop-filter:blur(10px);
+  box-shadow:0 0 60px rgba(255,51,99,.06), inset 0 0 0 1px rgba(255,255,255,.02);
+  transition:opacity .9s cubic-bezier(.22,1,.36,1), transform .9s cubic-bezier(.22,1,.36,1);
+}
+#terminal .eyebrow{
+  font-size:10px;letter-spacing:.28em;color:var(--gold);text-transform:uppercase;margin-bottom:18px;
+  display:flex;align-items:center;gap:10px;
+}
+#terminal .eyebrow::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--rose);box-shadow:0 0 8px var(--rose);animation:dot 1.4s ease-in-out infinite}
+@keyframes dot{50%{opacity:.25}}
+.line{color:var(--slate);min-height:22px;font-size:13px;margin:5px 0;letter-spacing:.01em}
+.line b{color:var(--ivory);font-weight:500}
+.cursor{display:inline-block;width:7px;height:14px;background:var(--rose);animation:blink 1s step-end infinite;margin-left:3px;vertical-align:-2px}
+@keyframes blink{50%{opacity:0}}
+
+button{
+  margin-top:24px;padding:15px 0;width:100%;background:transparent;border:1px solid var(--rose);
+  color:var(--rose);border-radius:2px;cursor:pointer;font-family:'JetBrains Mono',monospace;
+  font-weight:700;letter-spacing:.22em;font-size:11px;text-transform:uppercase;
+  transition:.3s;opacity:0;transform:translateY(10px);
+}
+button.show{opacity:1;transform:translateY(0)}
+button:hover{background:var(--rose);color:var(--bg);box-shadow:0 0 30px rgba(255,51,99,.4)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* ---- reveal ---- */
+#message{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;pointer-events:none;z-index:15;padding:24px;text-align:center}
+#text{
+  font-family:'Playfair Display',serif;font-style:italic;font-weight:600;
+  line-height:1.2;opacity:0;transform:translateY(10px);max-width:58vmin;
+  transition:opacity 1.8s ease, transform 1.8s cubic-bezier(.22,1,.36,1);
+}
+#text.show{opacity:1;transform:translateY(0)}
+#text .eyebrow-line{
+  display:block;font-family:'JetBrains Mono',monospace;font-style:normal;font-weight:700;
+  font-size:clamp(10px, 2vmin, 13px);letter-spacing:.34em;text-transform:uppercase;
+  color:var(--gold);text-shadow:0 0 18px rgba(217,167,81,.5);
+}
+#text .rule{display:block;width:34px;height:1px;background:var(--gold);margin:14px auto;opacity:.7}
+#text .big{
+  display:block;font-size:clamp(28px, 9vmin, 62px);
+  background:linear-gradient(100deg, var(--gold) 0%, var(--ivory) 35%, var(--rose) 65%, var(--ivory) 100%);
+  background-size:300% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 46px rgba(255,51,99,.35);
+  animation:shimmer 6s ease-in-out infinite;
+}
+@keyframes shimmer{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+@media (prefers-reduced-motion: reduce){
+  #text .big{animation:none;background-position:30% 50%}
+}
+#text .sub{
+  display:block;font-family:'JetBrains Mono',monospace;font-style:normal;font-weight:500;
+  font-size:min(2.6vw,13px);letter-spacing:.32em;color:var(--slate);text-transform:uppercase;margin-top:4px;
+}
+
+@media (prefers-reduced-motion: reduce){
+  #terminal, #text, button{transition:opacity .6s linear !important;transform:none !important}
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+<canvas id="heart"></canvas>
+
+<div id="monitor"><canvas id="ecg"></canvas></div>
+<div id="readout"><span>trace <b>cardiaque</b></span><span>signature <b>unique</b></span></div>
+<div id="bpm">rythme<span id="bpmVal">72</span></div>
+
+<div id="ui">
+  <div id="terminal">
+    <div class="eyebrow">canal sécurisé — lecture en cours</div>
+    <div class="line" id="l1"></div>
+    <div class="line" id="l2"></div>
+    <div class="line" id="l3"></div>
+    <button id="btn">Révéler</button>
+  </div>
+</div>
+
+<div id="message">
+  <div id="text">
+    <span class="eyebrow-line">Joyeux anniversaire</span>
+    <span class="rule"></span>
+    <span class="big">mon amour</span>
+  </div>
+</div>
+
+<script>
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- background stars ---------- */
+const bg = document.getElementById('bg'), bctx = bg.getContext('2d');
+const heart = document.getElementById('heart'), hctx = heart.getContext('2d');
+let w, h, scale, cx, cy;
+
+function resize(){
+  w = bg.width = heart.width = innerWidth;
+  h = bg.height = heart.height = innerHeight;
+  scale = Math.min(w, h) * 0.024;
+  cx = w / 2;
+  cy = h / 2 + 10;
+  ecg.width = ecgWrap.clientWidth;
+  ecg.height = ecgWrap.clientHeight;
+}
+const ecgWrap = document.getElementById('monitor');
+const ecg = document.getElementById('ecg'), ectx = ecg.getContext('2d');
+addEventListener('resize', resize);
+
+const stars = [];
+for(let i = 0; i < 220; i++){
+  stars.push({x: Math.random(), y: Math.random(), r: Math.random()*1.6+.3, a: Math.random(), v: Math.random()*.01+.002});
+}
+function drawStars(){
+  bctx.clearRect(0,0,w,h);
+  bctx.fillStyle = '#fff';
+  for(const s of stars){
+    s.a += s.v;
+    bctx.globalAlpha = (Math.sin(s.a)+1)/2 * 0.7;
+    bctx.beginPath(); bctx.arc(s.x*w, s.y*h, s.r, 0, Math.PI*2); bctx.fill();
+  }
+  bctx.globalAlpha = 1;
+}
+
+/* ---------- heart parametric ---------- */
+function heartPoint(t){
+  return {
+    x: 16*Math.sin(t)**3,
+    y: -(13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t))
+  };
+}
+
+const TOTAL = REDUCE ? 1 : 1500;
+const particles = [];
+for(let i = 0; i < TOTAL; i++){
+  particles.push({
+    t: (i/TOTAL) * Math.PI * 2,
+    jx: (Math.random()-.5) * 14,
+    jy: (Math.random()-.5) * 14,
+    x: 0, y: 0,
+    vx: (Math.random()-.5)*10,
+    vy: -Math.random()*8,
+    size: Math.random()*1.8+0.8,
+    delay: Math.random()*100,
+    word: Math.random() < 0.12,
+    ease: 0.028 + Math.random()*0.03,
+    born: false
+  });
+}
+
+const mouse = {x:-9999,y:-9999};
+addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+addEventListener('touchmove', e => { if(e.touches[0]){ mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; } }, {passive:true});
+
+let started = false, beat = 0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  drawStars();
+  hctx.fillStyle = 'rgba(7,7,12,.24)';
+  hctx.fillRect(0,0,w,h);
+  if(!started) return;
+
+  beat += 0.045;
+  const pulse = 1 + Math.sin(beat) * 0.03;
+
+  for(const p of particles){
+    if(!p.born){
+      if(p.delay > 0){ p.delay--; continue; }
+      p.x = cx + (Math.random()-.5)*120;
+      p.y = h + Math.random()*260;
+      p.born = true;
+    }
+    const hp = heartPoint(p.t);
+    const tx = cx + (hp.x*scale + p.jx) * pulse;
+    const ty = cy + (hp.y*scale + p.jy) * pulse;
+    let dx = tx - p.x, dy = ty - p.y;
+    p.vx += dx * p.ease; p.vy += dy * p.ease;
+
+    const mx = p.x - mouse.x, my = p.y - mouse.y;
+    const dist = Math.hypot(mx, my);
+    if(dist < 110){
+      const f = (110-dist)/110;
+      p.vx += (mx/dist) * f * 11;
+      p.vy += (my/dist) * f * 11;
+    }
+    p.vx *= 0.9; p.vy *= 0.9;
+    p.x += p.vx; p.y += p.vy;
+
+    hctx.shadowBlur = 9; hctx.shadowColor = '#ff3363';
+    if(p.word){
+      hctx.font = '600 9px JetBrains Mono';
+      hctx.fillStyle = '#ff7a94';
+      hctx.fillText("je t'aime", p.x, p.y);
+    } else {
+      hctx.fillStyle = '#ff3363';
+      hctx.beginPath(); hctx.arc(p.x, p.y, p.size, 0, Math.PI*2); hctx.fill();
+    }
+  }
+}
+
+/* ---------- ECG monitor strip ---------- */
+let ecgPhase = 0;
+const beatShape = [0,0,0,-3,0,2,-2,40,-32,10,0,0,0,0,3,3,2,0,0,0];
+let ecgHistory = [];
+function stepEcg(){
+  const idx = Math.floor(ecgPhase) % beatShape.length;
+  ecgHistory.push(beatShape[idx]);
+  if(ecgHistory.length > 260) ecgHistory.shift();
+  ecgPhase += 0.6;
+}
+function drawEcg(){
+  ectx.clearRect(0,0,ecg.width, ecg.height);
+  const midY = ecg.height * 0.62;
+  ectx.strokeStyle = 'rgba(255,51,99,.85)';
+  ectx.lineWidth = 1.6;
+  ectx.shadowBlur = 8; ectx.shadowColor = '#ff3363';
+  ectx.beginPath();
+  const stepX = ecg.width / 260;
+  for(let i = 0; i < ecgHistory.length; i++){
+    const x = i * stepX;
+    const y = midY - ecgHistory[i] * 1.6;
+    i === 0 ? ectx.moveTo(x,y) : ectx.lineTo(x,y);
+  }
+  ectx.stroke();
+  ectx.shadowBlur = 0;
+}
+let bpmVal = 72;
+function ecgLoop(){
+  if(!REDUCE){
+    stepEcg();
+    drawEcg();
+    if(Math.random() < 0.01){
+      bpmVal = 70 + Math.round(Math.random()*6);
+      document.getElementById('bpmVal').textContent = bpmVal;
+    }
+  }
+  requestAnimationFrame(ecgLoop);
+}
+
+resize();
+animate();
+ecgLoop();
+
+/* ---------- terminal typing ---------- */
+async function type(el, text, speed=26){
+  el.innerHTML = '<span class="cursor"></span>';
+  if(REDUCE){ el.textContent = text; return; }
+  for(let i = 0; i < text.length; i++){
+    el.innerHTML = text.slice(0,i+1) + '<span class="cursor"></span>';
+    await new Promise(r => setTimeout(r, speed));
+  }
+  el.textContent = text;
+}
+
+(async () => {
+  await new Promise(r => setTimeout(r, 500));
+  await type(l1, 'signal reçu — une pulsation, une seule');
+  await type(l2, 'analyse : bpm 72, régulier depuis le premier jour');
+  await type(l3, 'un message est chiffré dans ce battement');
+  btn.classList.add('show');
+})();
+
+btn.onclick = () => {
+  if(started) return;
+  started = true;
+  const t = document.getElementById('terminal');
+  t.style.transform = 'scale(1.05)';
+  t.style.opacity = '0';
+  setTimeout(() => {
+    t.style.display = 'none';
+    document.getElementById('text').classList.add('show');
+  }, REDUCE ? 200 : 900);
+};
+</script>
+</body>
+</html>
